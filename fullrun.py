@@ -5,6 +5,8 @@ Draft Captions are NOT part of this pipeline. Usage: venv/bin/python fullrun.py 
 import argparse, os, json, os, re, subprocess, sys, time
 from pathlib import Path
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter")); sys.path.insert(0, str(HOME))
+os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
+os.environ.setdefault("DO_NOT_TRACK", "1")
 TAG = str(HOME / "tag")
 
 def log(*a): print(time.strftime("%H:%M:%S"), *a, flush=True)

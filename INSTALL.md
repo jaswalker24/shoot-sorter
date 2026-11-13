@@ -91,6 +91,16 @@ Pull or copy a newer tree, then re-run `./install.sh`. Existing config, token, m
 
 That command only restarts `com.shootsorter.gui`.
 
+## Remote access
+
+The control panel binds to `127.0.0.1:8766` by default, so it is only reachable on that Mac. To open it from another computer (for example a headless Mac), set `"gui_host": "0.0.0.0"` in `~/shoot-sorter/config.json`, or set the environment variable `SHOOT_SORTER_GUI_HOST=0.0.0.0` (you can add that key under `EnvironmentVariables` in `~/Library/LaunchAgents/com.shootsorter.gui.plist`). Then reload the panel:
+
+```bash
+~/shoot-sorter/venv/bin/python ~/shoot-sorter/gui/reload_when_idle.py
+```
+
+The in-panel folder browser (Settings → Locations → Browse) also needs this if you are using the panel from another computer. Keep the login token private; binding to `0.0.0.0` exposes the login page on the local network.
+
 ## Uninstalling
 
 ```bash
@@ -111,7 +121,7 @@ This tool never writes `xmp:Rating`, `xmp:Label` or Camera Raw develop settings.
 Those formats normally store metadata inside the file. The sidecar was still written; use Read Metadata from Files. Embedding into the image is not implemented.
 
 **Panel will not start / wrong port**  
-This edition listens on http://127.0.0.1:8766/.
+This edition listens on http://127.0.0.1:8766/ by default. To change the address or port, set `gui_host` / `gui_port` in `config.json` or `SHOOT_SORTER_GUI_HOST` / `SHOOT_SORTER_GUI_PORT`, then reload the panel. See [Remote access](#remote-access).
 
 **First run is slow**  
 SigLIP weights download on first use into `~/shoot-sorter/models/hf`. Later runs reuse them.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shoot Sorter control panel — LAN web UI on port 8766.
+"""Shoot Sorter control panel — local web UI on port 8766 (127.0.0.1 by default).
 
 Stdlib only (no Flask/FastAPI) so it can run while a tagging job uses the venv.
 Auth: shared secret in ~/shoot-sorter/gui/auth.token → cookie after POST /api/login.
@@ -18,8 +18,6 @@ STATIC = GUI / "static"
 JOBS = GUI / "jobs"
 HISTORY = GUI / "history"
 AUTH_FILE = GUI / "auth.token"
-PORT = int(os.environ.get("SHOOT_SORTER_GUI_PORT", "8766"))
-HOST = os.environ.get("SHOOT_SORTER_GUI_HOST", "0.0.0.0")
 
 # nas_paths (and the rest of the tree) live in SHOOT_SORTER_HOME, or the repo root
 # when this file is run from a checkout (gui/server.py).
@@ -27,6 +25,10 @@ sys.path.insert(0, str(HOME))
 _REPO = Path(__file__).resolve().parent.parent
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
+import app_home as AH
+AH.apply_privacy_defaults()
+PORT = AH.gui_port()
+HOST = AH.gui_host()
 
 def _load_roots():
     """Imports/exports folders: env, then config.json, then the historical default paths."""

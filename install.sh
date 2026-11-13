@@ -45,6 +45,9 @@ Options:
 Environment:
   SHOOT_SORTER_HOME              Install prefix (default: ~/shoot-sorter)
   SHOOT_SORTER_LAUNCH_AGENTS_DIR LaunchAgents folder
+  SHOOT_SORTER_GUI_HOST          Panel bind address (default: 127.0.0.1;
+                                 set 0.0.0.0 to reach it from another computer)
+  SHOOT_SORTER_GUI_PORT          Panel port (default: 8766)
 EOF
 }
 
@@ -62,6 +65,10 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+
+# Hugging Face usage stats off by default; model downloads still work.
+export HF_HUB_DISABLE_TELEMETRY="${HF_HUB_DISABLE_TELEMETRY:-1}"
+export DO_NOT_TRACK="${DO_NOT_TRACK:-1}"
 
 say() { printf '\n==> %s\n' "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -512,6 +519,8 @@ Next steps (one-time):
 
   6. Open the control panel: http://127.0.0.1:8766/
      or the "Shoot Sorter" Dock shortcut (signs you in locally).
+     The panel binds to 127.0.0.1 only. For access from another
+     computer, set gui_host to 0.0.0.0 in config.json (see INSTALL.md).
      The login token is stored at $DEST/gui/auth.token (never share it).
      Settings → Locations sets the NAS paths; the Training tab can queue
      a rank-training job (NAS read-only, never writes sidecars).

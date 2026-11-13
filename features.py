@@ -24,6 +24,8 @@ HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter"
 sys.path.insert(0, str(HOME))
 os.environ.setdefault("HF_HOME", str(HOME / "models" / "hf"))
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
+os.environ.setdefault("DO_NOT_TRACK", "1")
 import numpy as np
 import requests
 from PIL import Image

@@ -27,10 +27,12 @@
     <string>__HOME__</string>
     <key>SHOOT_SORTER_HOME</key>
     <string>__HOME__/shoot-sorter</string>
-    <key>SHOOT_SORTER_GUI_HOST</key>
-    <string>0.0.0.0</string>
     <key>SHOOT_SORTER_GUI_PORT</key>
     <string>8766</string>
+    <key>HF_HUB_DISABLE_TELEMETRY</key>
+    <string>1</string>
+    <key>DO_NOT_TRACK</key>
+    <string>1</string>
   </dict>
 </dict>
 </plist>
