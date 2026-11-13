@@ -83,4 +83,4 @@ MP4s are ignored. Files named `_schedule*` are skipped by every pass. Changes ar
 
 ## Licence
 
-This repository does not include a licence file yet. Until one is added, all rights are reserved by the author.
+Released under the MIT Licence. See [LICENSE](LICENSE).
