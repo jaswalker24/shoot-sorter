@@ -9,7 +9,7 @@ Tags, ranks and culls photo shoots locally on Apple silicon and writes keywords 
 - Lightroom Classic, if you want the keywords in your catalogue. The tool itself does not need Lightroom to be open.
 - About 15 GB free the first time, for Python packages and local models.
 
-Everything runs on the Mac. The local model server listens on localhost only. There is no cloud vision API.
+Tagging runs on the Mac. The local model server listens on localhost only. There is no cloud vision API. See [Disclaimer](#disclaimer) for the full network picture.
 
 ## Install
 
@@ -83,7 +83,19 @@ MP4s are ignored. Files named `_schedule*` are skipped by every pass. Changes ar
 
 ## Licence
 
-Released under the MIT Licence. See [LICENSE](LICENSE). The MIT licence covers Shoot Sorter's own code only. Models and engines stay under their own terms; see [Models and licences](#models-and-licences).
+Released under the MIT Licence. See [LICENSE](LICENSE). The MIT licence covers Shoot Sorter's own code only. Models and engines stay under their own terms; see [Models and licences](#models-and-licences). Python packages and bundled tools are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+
+## Disclaimer
+
+Shoot Sorter is not affiliated with, endorsed by or sponsored by Adobe (including Lightroom and Lightroom Classic), Capture One A/S, Apple, Alibaba or the Qwen team, InsightFace, or OpenAI. All trademarks belong to their owners and are used only to describe compatibility.
+
+The software is provided "as is", without warranty of any kind, as set out in the [MIT Licence](LICENSE). Back up your Lightroom catalogue and your photos before you use it. The authors are not liable for lost, changed or unreadable metadata, sidecars, catalogues or image files.
+
+Third-party models are downloaded separately and remain under their own licences. You must comply with those terms, including any non-commercial restrictions. See [Models and licences](#models-and-licences).
+
+The People (faces) feature processes biometric data. If you run it on photographs of other people, especially for client or commercial work, you are responsible for having a lawful basis and any required consent under laws that apply to you, such as UK or EU GDPR and Illinois BIPA. The feature is optional and is off by default: it is not in the default pass list, and none of the built-in Quick, Standard or Full bundles include it. Leave **People (faces)** unticked when you queue a job, and do not add it to an auto-queue profile. To run it, tick that pass or run `~/shoot-sorter/tag faces`.
+
+Tagging and model inference run on the Mac. The app does not upload your photos. Outbound network use is: the installer and first tagging run downloading tools and model weights from GitHub, ExifTool's site and Hugging Face; optional job-status notifications, only if you turn on Telegram or email in Settings (off by default, text only, no photos); and calls to the local Ollama server on 127.0.0.1. The Hugging Face client libraries used to fetch SigLIP and CLIP weights may also send library-usage telemetry that does not include your photos; you can disable that by setting `HF_HUB_DISABLE_TELEMETRY=1`. The control panel is login-protected and listens on port 8766 on all interfaces by default (set `SHOOT_SORTER_GUI_HOST` to `127.0.0.1` to keep it on this Mac only). It does not send images.
 
 ## Models and licences
 
