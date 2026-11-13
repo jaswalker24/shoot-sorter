@@ -1,0 +1,59 @@
+{
+  "siglip_model": "ViT-B-16-SigLIP-256",
+  "siglip_pretrained": "webli",
+  "ollama_url": "http://127.0.0.1:11434",
+  "vlm_model": "qwen2.5vl:3b",
+  "preview_max_px": 2400,
+  "vlm_max_px": 1120,
+  "photos_root": "/Volumes/your-nas",
+  "imports_root": "/Volumes/your-nas/Camera Imports",
+  "exports_root": "/Volumes/your-nas/Camera Exports",
+  "other_exports_root": "/Volumes/your-nas/2025 Exports",
+  "schedules_root": "/Volumes/your-nas/Schedules",
+  "training": {
+    "sources": {
+      "exports_root": true,
+      "other_exports_root": true,
+      "imports_root": true
+    }
+  },
+  "xmp_backup": true,
+  "thresholds": {
+    "label_min": 0.55,
+    "colour_min": 0.45,
+    "is_car_min": 0.5,
+    "ocr_min": 0.6,
+    "ocr_min_height": 0.012,
+    "binary_tag_min": 0.85
+  },
+  "script_context": {
+    "EXAMPLE_FOLDER_NAME": "Optional context string for Script-menu tagging"
+  },
+  "script_profile_default": "gig",
+  "profile_by_folder": {
+    "BrandsHatch|Britcar|Silverstone|Donington|Snetterton|Oulton|Thruxton|Goodwood|Fuji Speedway|Suzuka|Motegi": "motorsport",
+    "Street|Alley|Night|Market|Downtown|OldTown": "street"
+  },
+  "camera_utc_offset": null,
+  "rank": {
+    "weights": {
+      "sharp": 0.15,
+      "aes": 0.45,
+      "burst_best": 0.0,
+      "burst_other": 0.1,
+      "blur": 0.0
+    },
+    "previous_weights": {
+      "sharp": 0.5,
+      "aes": 0.15,
+      "burst_best": 0.3,
+      "burst_other": 0.1,
+      "blur": 0.3
+    },
+    "best_pct": 0.1,
+    "good_pct": 0.2,
+    "min_rated_for_calibration": 10,
+    "source": "exports+stars-loso",
+    "model": "weighted"
+  }
+}

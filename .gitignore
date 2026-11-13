@@ -1,0 +1,73 @@
+# Runtime / local
+venv/
+python/
+.uvcache/
+__pycache__/
+*.py[cod]
+*.bak
+.DS_Store
+
+# Heavy / downloaded
+ollama/
+models/
+bin/uv
+bin/uvx
+bin/exiftool
+tools/*
+!tools/reapply_folder.py
+!tools/train_rank_exports.py
+
+# Working data (never commit)
+cache/
+index/
+out/
+logs/
+*.CR3
+*.CR2
+*.NEF
+*.ARW
+*.JPG
+*.JPEG
+*.PNG
+*.MP4
+# Panel logo and favicons extracted from the Dock app icon (not photo data)
+!gui/static/logo.png
+!gui/static/favicon.png
+!gui/static/apple-touch-icon.png
+*.MOV
+
+# Local overrides
+config.json
+export/
+
+# Secrets
+.env
+*.pem
+*.key
+credentials*
+secrets*
+
+# macOS AppleDouble / resource forks
+._*
+__pycache__/
+*.pyc
+gui/auth.token
+gui/jobs/
+gui/history/
+gui/dock-backup-*.plist
+gui/notify.json
+schedules/_dryrun-*.json
+schedules/apply-*.json
+
+# Persistent face library (local names + embeddings)
+people/
+
+# Local GUI state
+gui/presets.json
+gui/schedule-drafts/
+schedules/_merged-*.json
+
+# Personal schedules stay on the machine, not in the repo.
+# Keep the public template.
+schedules/*.json
+!schedules/example.json

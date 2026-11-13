@@ -1,0 +1,46 @@
+{
+  "id": "street-photography",
+  "name": "Street photography",
+  "kind": "catalog",
+  "shoot_type": "Street",
+  "tagger_profile": "street",
+  "pass_bundle": "Standard",
+  "passes": [
+    "tagger",
+    "camera",
+    "scene",
+    "index",
+    "sharpness",
+    "bursts",
+    "rank",
+    "schedule",
+    "cull"
+  ],
+  "pass_settings": {
+    "tagger": {},
+    "index": {},
+    "sharpness": {},
+    "bursts": {},
+    "schedule": {},
+    "rank": {},
+    "cull": {},
+    "scene": {},
+    "camera": {}
+  },
+  "camera_tz": "Europe/London",
+  "camera_tz_other": "",
+  "buffer_min": 3,
+  "default_keywords": [
+    "Street",
+    "General/Scene/Street"
+  ],
+  "keyword_set": "Street",
+  "schedule_path": "",
+  "ocr_missing_car_number": false,
+  "apply_rank_keywords": false,
+  "apply_each": true,
+  "strictness": "Lenient",
+  "notify": "Finish",
+  "advanced": {},
+  "updated": "2026-11-09T22:21:52"
+}

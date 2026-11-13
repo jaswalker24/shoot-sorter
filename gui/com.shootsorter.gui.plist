@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.shootsorter.gui</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__HOME__/shoot-sorter/venv/bin/python</string>
+    <string>__HOME__/shoot-sorter/gui/server.py</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__HOME__/shoot-sorter</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>__HOME__/shoot-sorter/logs/gui/server.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/shoot-sorter/logs/gui/server.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>__HOME__/shoot-sorter/venv/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HOME</key>
+    <string>__HOME__</string>
+    <key>SHOOT_SORTER_HOME</key>
+    <string>__HOME__/shoot-sorter</string>
+    <key>SHOOT_SORTER_GUI_HOST</key>
+    <string>0.0.0.0</string>
+    <key>SHOOT_SORTER_GUI_PORT</key>
+    <string>8766</string>
+  </dict>
+</dict>
+</plist>

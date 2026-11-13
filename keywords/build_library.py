@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""Builds keyword-library.txt (tab-indented, Lightroom/Capture One import format) + CSV of full paths."""
+import csv
+L = lambda *a: list(a)
+tree = {
+ "Motorsport": {
+  "Car Colour": L("Black","Blue","Green","Grey","Orange","Red","White","Yellow","Silver","Purple","Pink","Gold","Multi"),
+  "Car Number": [str(i) for i in range(1000)],
+  "Night": [],
+  "Shot": L("Panning","Head-on","Rear","Pit Lane","Paddock","Podium","Grid","Crash-Incident","Detail","Driver Portrait"),
+  "Series": L("Britcar","CTCC","Tiedeman","BTCC","GT","Formula","Touring","Endurance"),
+  "Session": L("Practice","Qualifying","Race 1","Race 2","Race 3"),
+  "Circuit": {"Brands Hatch": {"Corner": L("Paddock Hill Bend","Druids","Graham Hill Bend","Surtees","Clearways","Hawthorns","Westfield","Sheene","Stirlings")},
+              "Silverstone":[], "Donington":[], "Snetterton":[], "Oulton Park":[], "Thruxton":[], "Goodwood":[],
+              "Fuji Speedway":[], "Suzuka":[], "Motegi":[]},
+ },
+ "Gig": {
+  "Crowd":[], "Stage":[], "Portrait":[],
+  "Framing": L("Wide","Close-up"),
+  "Performer": L("Band","Solo","Guitar","Drums","Bass","Vocals","Keys","DJ"),
+  "Lighting": L("Silhouette","Pyro","Backlit","Strobe"),
+  "Backstage":[],
+  "Underground Idol": L("Cheki","Dance","Group"),
+  "Venue Type": L("Live House","Club","Arena","Festival"),
+ },
+ "Street": L("Alley","Crowd","Pedestrian","Signage","Neon","Shopfront","Vending Machine",
+             "Crossing","Night Street","Reflections","Silhouette","Candid","Rain","Umbrella",
+             "Cyclist","Market","Lantern","Shrine Gate","Temple"),
+ "Japan": {
+  "City": {"Tokyo": L("Shibuya","Shinjuku","Akihabara","Asakusa","Harajuku"),
+           "Osaka": L("Dotonbori","Namba","Umeda")},
+  "Subject": L("Shrine","Temple","Torii","Street","Neon","Food","Train","Station","Market","Garden",
+               "Autumn Leaves","Skyline","Night","Rain","Transit","Landscape","Mt Fuji"),
+ },
+ "Aviation": {"Subject": L("Airliner","Military","Helicopter","Light Aircraft","Vintage","Display Team"),
+              "Shot": L("Takeoff","Landing","Banking","Head-on","Ground","Airshow","Spotting","Cockpit","Detail")},
+ "Wildlife": {"Subject": L("Bird","Bird in Flight","Mammal","Big Cat","Insect","Reptile","Pet","Dog","Cat","Zoo","Safari Park"),
+              "Shot": L("Portrait","Action","Environmental","Close-up")},
+ "Static Vehicles": {"Type": L("Car","Motorbike","Classic","Supercar","JDM","Truck","Military Vehicle"),
+                     "Event": L("Car Show","Meet","Museum","Track Day Paddock"),
+                     "Shot": L("Front Three-Quarter","Rear Three-Quarter","Side Profile","Interior","Engine Bay","Badge","Wheel","Detail")},
+ "Film": {"Format": L("35mm","120","Instant"), "Process": L("Colour Negative","Black and White","Slide"),
+          "Stage": L("Developed","Scanned")},
+ "General": {
+  "Light": L("Golden Hour","Blue Hour","Night","Backlit"),
+  "Weather": L("Rain","Fog","Snow","Sun"),
+  "Quality": L("Sharp","Motion Blur","Soft Focus","Noise","Clipped Highlights","Crushed Shadows"),
+  "Use": L("Portfolio","Social","Client","Archive","Reject Candidate"),
+  "Orientation": L("Portrait","Landscape","Square"),
+ },
+}
+
+# Extra feature keywords and example gig events, venues and acts
+_extra = {
+ "General": {
+  "Burst Best": [],
+  "Score": ["Below 5", "5", "6", "7", "8+"],
+  "Rank": ["Best", "Good"],
+  "Focus": ["On Target", "Missed"],
+  "Scene": [
+    "Architecture","Street","Alley","Cityscape","Landscape","Nature","Sky","Water","River",
+    "Mountain","Garden","Bridge","Interior","Shop","Market","Station","Night","Sunset","Rain",
+    "Temple","Shrine","Food","Signage","Neon","Transport","Vehicle","Motorbike","Train",
+    "People","Portrait","Crowd","Animal","Stage","Concert","Festival","Motorsport","Abstract","Detail",
+  ],
+  "Camera": {
+    "Lens": ["Canon 50mm f1.2", "Canon 85mm f1.4", "Canon 35mm f2", "Canon 135mm f2", "Sigma 150-600", "Canon 70-200 f4"],
+    "Focal": ["Wide", "Normal", "Tele", "Super Tele"],
+    "High ISO": [],
+    "Very High ISO": [],
+    "Wide Open": [],
+    "Slow Shutter": [],
+    "Exposure Comp": ["Plus", "Minus"],
+    "Drive": ["High Speed"],
+    "Shutter": ["Electronic"],
+    "AF": ["Servo", "One-Shot", "Manual"],
+    "AF Area": ["Face + Tracking", "Spot", "1-Point", "Expand", "Zone", "Large Zone", "Flexible Zone"],
+    "Subject": ["People", "Animals", "Vehicles"],
+    "Eye Detection": [],
+    "IS": ["On", "Off"],
+    "Flash Fired": [],
+  },
+ },
+ "Gig": {
+  "Cheki": [],
+  "Meet & Greet": [],
+  "Changeover": [],
+  "Event": [
+    "Sample Festival vol.1",
+    "Evening Lights Showcase",
+    "Afternoon Bill",
+    "Headline Show",
+    "Example Tour 2026",
+    "Stadium Headline",
+    "Birthday Showcase",
+  ],
+  "Venue": [
+    "Example Hall",
+    "City Plaza",
+    "Club Example",
+    "Example Arena",
+    "Example SOMA",
+    "Example Stadium",
+    "Example REX",
+  ],
+  "Act": [
+    "Act One", "Act Two", "Act Three",
+    "Act Alpha", "Act Beta",
+    "Headline Act", "Support Act",
+    "Main Act", "No Photo Act",
+  ],
+ },
+}
+
+def _merge_extra(dst, extra):
+    for k, v in extra.items():
+        if k not in dst:
+            dst[k] = v if isinstance(v, dict) else {x: [] for x in v}
+            continue
+        node = dst[k]
+        if not isinstance(node, dict):
+            continue
+        if isinstance(v, dict):
+            for ck, cv in v.items():
+                if ck not in node:
+                    node[ck] = cv if isinstance(cv, dict) else ({x: [] for x in cv} if isinstance(cv, list) else [])
+                elif isinstance(cv, list) and isinstance(node[ck], dict):
+                    for x in cv:
+                        node[ck].setdefault(x, [])
+                elif isinstance(cv, list) and isinstance(node[ck], list):
+                    for x in cv:
+                        if x not in node[ck]:
+                            node[ck].append(x)
+                elif isinstance(cv, dict) and isinstance(node[ck], dict):
+                    _merge_extra({ck: node[ck]}, {ck: cv})
+                    node[ck] = node[ck]
+        elif isinstance(v, list):
+            for x in v:
+                node.setdefault(x, [])
+
+_merge_extra(tree, _extra)
+
+lines, rows = [], []
+def walk(node, depth, path):
+    items = node.items() if isinstance(node, dict) else [(k, []) for k in node]
+    for k, v in items:
+        lines.append("\t" * depth + k)
+        p = path + [k]
+        rows.append(("|".join(p), "/".join(p), depth + 1, p[0]))
+        walk(v, depth + 1, p)
+walk(tree, 0, [])
+with open(__import__("pathlib").Path(__file__).with_name("keyword-library.txt"), "w", encoding="utf-8", newline="\n") as f:
+    f.write("\n".join(lines) + "\n")
+with open(__import__("pathlib").Path(__file__).with_name("keyword-library.csv"), "w", encoding="utf-8", newline="") as f:
+    w = csv.writer(f); w.writerow(["path_pipe", "path_slash", "level", "top_level"]); w.writerows(rows)
+from collections import Counter
+print(len(rows), Counter(r[3] for r in rows))

@@ -1,0 +1,9 @@
+#!/bin/bash
+TOKEN_FILE="${SHOOT_SORTER_HOME:-$HOME/shoot-sorter}/gui/auth.token"
+BASE="http://127.0.0.1:8766/"
+if [ -f "$TOKEN_FILE" ]; then
+  TOKEN=$(tr -d '\r\n' < "$TOKEN_FILE")
+  open "${BASE}?token=${TOKEN}"
+else
+  open "$BASE"
+fi

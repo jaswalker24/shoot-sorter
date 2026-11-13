@@ -1,0 +1,2 @@
+# Personal schedule files are gitignored and must not be added.
+# git archive already ships only tracked files; example.json is the public template.
