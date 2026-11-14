@@ -6,7 +6,7 @@ The packaged Windows edition of Shoot Sorter: a tray app with its own Python run
 
 - Windows 10 (1809) or Windows 11, 64-bit (x64).
 - An NVIDIA graphics card with a recent driver (580 or newer, CUDA 13) is strongly recommended. Without one, everything runs on the processor, which is much slower.
-- About 1 GB for the app, plus about 4 GB for PyTorch and about 8 GB for models, both downloaded on first launch (Ollama for Windows is about 1.6 GB of that).
+- The installer is about 200 MB and the app takes about 0.9 GB once installed. First launch downloads PyTorch (CUDA build: about 2.1 GB to download, 3 GB unpacked; CPU build: about 0.5 GB unpacked) and about 8 GB of models (Ollama for Windows is about 1.6 GB of that).
 
 ## Install
 
