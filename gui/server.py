@@ -26,6 +26,7 @@ _REPO = Path(__file__).resolve().parent.parent
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 import app_home as AH
+import compat  # noqa: E402
 AH.apply_privacy_defaults()
 PORT = AH.gui_port()
 HOST = AH.gui_host()
@@ -192,17 +193,16 @@ def sys_stats():
     except Exception as e:
         stats["mem_error"] = str(e)
     try:
-        r = subprocess.run(["curl", "-s", "--max-time", "2", "http://127.0.0.1:11434/api/ps"],
-                           capture_output=True, text=True)
-        models = json.loads(r.stdout or "{}").get("models") or []
+        import urllib.request
+        with urllib.request.urlopen("http://127.0.0.1:11434/api/ps", timeout=2) as _r:
+            models = json.loads(_r.read().decode("utf-8") or "{}").get("models") or []
         stats["ollama_models"] = [m.get("name") or m.get("model") for m in models]
         stats["caption_model_loaded"] = any("qwen" in (n or "").lower() or "vl" in (n or "").lower()
                                             for n in stats["ollama_models"])
     except Exception:
         pass
     try:
-        r = subprocess.run(["pgrep", "-f", "fullrun.py"], capture_output=True)
-        stats["fullrun_running"] = r.returncode == 0
+        stats["fullrun_running"] = compat.proc_running("fullrun.py")
     except Exception:
         pass
     with _QUEUE_LOCK:
@@ -231,12 +231,12 @@ def sys_stats():
     except Exception as e:
         stats["disk_nas_error"] = str(e)
     try:
-        r = subprocess.run(["pgrep", "-if", "Lightroom"], capture_output=True, text=True)
-        line = r.stdout or ""
-        stats["lightroom_running"] = r.returncode == 0 and "Lightroom" in line
+        stats["lightroom_running"] = compat.proc_running("lightroom", ignore_case=True)
     except Exception:
         stats["lightroom_running"] = None
     try:
+        if sys.platform != "darwin":
+            raise RuntimeError("thermal stats are macOS only")
         # thermal / memory pressure via `memory_pressure` / `pmset -g therm`
         mp = subprocess.run(["memory_pressure"], capture_output=True, text=True, timeout=3)
         line = next((ln for ln in mp.stdout.splitlines() if "free percentage" in ln.lower() or "pressure" in ln.lower()), "")
@@ -312,7 +312,7 @@ def _worker_loop():
             # run as subprocess so cancel can kill it, and so imports of torch etc stay isolated
             env = {**os.environ, "SHOOT_SORTER_NO_APPLY_STEP": "1"}
             proc = subprocess.Popen(
-                [str(HOME / "venv/bin/python"), str(HOME / "jobrunner.py"), str(path)],
+                [compat.python_exe(HOME), str(HOME / "jobrunner.py"), str(path)],
                 cwd=str(HOME), env=env,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
@@ -327,7 +327,7 @@ def _worker_loop():
                 if cur.get("cancel_requested") and proc.poll() is None:
                     try:
                         # kill process group children: jobrunner + tag children
-                        subprocess.run(["pkill", "-P", str(proc.pid)], capture_output=True)
+                        compat.kill_children(proc.pid)
                         proc.terminate()
                         try:
                             proc.wait(timeout=10)
@@ -1393,7 +1393,7 @@ class Handler(BaseHTTPRequestHandler):
             profile = data.get("profile") or "gig"
             context = data.get("context") or ""
             sample = int(data.get("sample") or 0)
-            cmd = [str(HOME / "tag"), "captions", str(folder), "--profile", profile]
+            cmd = [*compat.tag_cmd(HOME), "captions", str(folder), "--profile", profile]
             if context:
                 cmd += ["--context", context]
             if sample:

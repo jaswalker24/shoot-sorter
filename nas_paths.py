@@ -297,8 +297,15 @@ def preview_path(path: str) -> dict:
 
 
 
+def _windows_drives() -> list[Path]:
+    import string
+    return [Path(f"{d}:\\") for d in string.ascii_uppercase if os.path.exists(f"{d}:\\")]
+
+
 def default_allowed_roots() -> list[Path]:
-    """Browse is limited to /Volumes and the logged-in user's home."""
+    """Browse is limited to /Volumes (macOS) or the drive letters (Windows) and the user's home."""
+    if os.name == "nt":
+        return [*_windows_drives(), Path.home()]
     return [Path("/Volumes"), Path.home()]
 
 
@@ -350,11 +357,18 @@ def quick_list_roots(home_cfg: Path | None = None) -> list[dict]:
         photos = photos_root(home_cfg)
     except Exception:
         pass
-    items = [
-        {"id": "volumes", "name": "Volumes", "path": "/Volumes"},
-        {"id": "photos", "name": "Photos (NAS)", "path": str(photos)},
-        {"id": "home", "name": "Home", "path": str(Path.home())},
-    ]
+    if os.name == "nt":
+        items = [{"id": "drive-" + d.drive[0].lower(), "name": d.drive, "path": str(d)} for d in _windows_drives()]
+        items += [
+            {"id": "photos", "name": "Photos (NAS)", "path": str(photos)},
+            {"id": "home", "name": "Home", "path": str(Path.home())},
+        ]
+    else:
+        items = [
+            {"id": "volumes", "name": "Volumes", "path": "/Volumes"},
+            {"id": "photos", "name": "Photos (NAS)", "path": str(photos)},
+            {"id": "home", "name": "Home", "path": str(Path.home())},
+        ]
     out, seen = [], set()
     for item in items:
         key = item["path"]
@@ -376,7 +390,7 @@ def list_location_dir(path: str, allowed_roots: list[Path] | None = None,
     """
     roots = [Path(r) for r in (allowed_roots or default_allowed_roots())]
     volumes = Path("/Volumes")
-    fallback = volumes if volumes.is_dir() else Path.home()
+    fallback = volumes if (os.name != "nt" and volumes.is_dir()) else Path.home()
     requested = normalize_path(path)
     note = None
     target = Path(requested) if requested else fallback
@@ -408,7 +422,8 @@ def list_location_dir(path: str, allowed_roots: list[Path] | None = None,
     if not _is_allowed(target, roots):
         return {
             "ok": False,
-            "error": "Folder browsing is limited to /Volumes and your home directory.",
+            "error": ("Folder browsing is limited to your drives and home folder." if os.name == "nt"
+                      else "Folder browsing is limited to /Volumes and your home directory."),
             "path": str(fallback) if _is_allowed(fallback, roots) else str(Path.home()),
             "entries": [],
             "breadcrumbs": [],
@@ -500,9 +515,39 @@ def _as_literal(s: str) -> str:
     return '"' + str(s).replace('"', '""') + '"'
 
 
+def _choose_folder_windows(prompt: str, timeout: int = 360) -> dict:
+    """Native Windows folder picker (WinForms FolderBrowserDialog through PowerShell)."""
+    ps_prompt = prompt.replace("'", "''")
+    script = (
+        "Add-Type -AssemblyName System.Windows.Forms;"
+        "$f = New-Object System.Windows.Forms.FolderBrowserDialog;"
+        f"$f.Description = '{ps_prompt}';"
+        "$f.ShowNewFolderButton = $false;"
+        "$o = New-Object System.Windows.Forms.Form; $o.TopMost = $true;"
+        "if ($f.ShowDialog($o) -eq 'OK') { [Console]::Out.Write($f.SelectedPath) } else { [Console]::Out.Write('__CANCELLED__') }"
+    )
+    try:
+        r = subprocess.run(["powershell.exe", "-NoProfile", "-STA", "-Command", script],
+                           capture_output=True, text=True, timeout=timeout,
+                           creationflags=0x08000000)
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "cancelled": False, "error": "Folder picker timed out. Paste the path instead."}
+    except OSError as e:
+        return {"ok": False, "cancelled": False, "error": f"Folder picker unavailable ({e}). Paste the path instead."}
+    text = (r.stdout or "").strip()
+    if text == "__CANCELLED__":
+        return {"ok": False, "cancelled": True, "error": "Cancelled"}
+    if r.returncode != 0 or not text:
+        return {"ok": False, "cancelled": False, "error": (r.stderr or "").strip()[:300] or "Folder picker failed"}
+    path = normalize_path(text)
+    return {"ok": True, "cancelled": False, "path": path, "preview": preview_path(path)}
+
+
 def choose_folder(prompt: str, timeout: int = 360) -> dict:
     """Native macOS folder picker via osascript. Runs on the GUI Mac."""
     prompt = (prompt or "Choose a folder").replace("\n", " ").strip()[:200]
+    if os.name == "nt":
+        return _choose_folder_windows(prompt, timeout)
     if sys.platform != "darwin":
         return {"ok": False, "cancelled": False,
                 "error": "Folder picker only works on the Mac running the control panel. Paste the path instead."}

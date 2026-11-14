@@ -11,9 +11,10 @@ from pathlib import Path
 
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter"))
 sys.path.insert(0, str(HOME))
+import compat  # noqa: E402
 os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
 os.environ.setdefault("DO_NOT_TRACK", "1")
-TAG = str(HOME / "tag")
+TAG = compat.tag_cmd(HOME)  # list: ["~/shoot-sorter/tag"] or [python, tag.py]
 OUT = HOME / "out"
 def _nas_roots():
     try:
@@ -283,7 +284,7 @@ def run_rank_train(state):
     state["apply_each"] = False
     state["apply_rank_keywords"] = False
     state["dry_run"] = True
-    py = HOME / "venv" / "bin" / "python"
+    py = Path(compat.python_exe(HOME))
     script = HOME / "tools" / "train_rank_exports.py"
     if not script.is_file():
         alt = Path(__file__).resolve().parent / "tools" / "train_rank_exports.py"
@@ -413,7 +414,7 @@ def run_job(state_path: Path):
             state["_pass_t0"] = t0
 
             if pid == "tagger":
-                cmd = [TAG, str(folder), "--profile", profile, "--tag", "full", "--resume", "--no-caption"]
+                cmd = [*TAG, str(folder), "--profile", profile, "--tag", "full", "--resume", "--no-caption"]
                 if context:
                     cmd += ["--context", context]
                 if sample:
@@ -421,13 +422,13 @@ def run_job(state_path: Path):
                 _run_streaming(state, cmd, env={"SHOOT_SORTER_NO_APPLY_STEP": "1"}, pass_id=pid)
 
             elif pid == "index":
-                cmd = [TAG, "index", str(folder)]
+                cmd = [*TAG, "index", str(folder)]
                 if sample:
                     cmd += ["--sample", str(sample)]
                 _run_streaming(state, cmd, pass_id=pid)
 
             elif pid in ("sharpness", "bursts"):
-                cmd = [TAG, pid, str(folder)]
+                cmd = [*TAG, pid, str(folder)]
                 env = None
                 if pid == "sharpness":
                     # AF-point focus check runs inside the sharpness step (features.py hook -> afpoints.py)
@@ -438,13 +439,13 @@ def run_job(state_path: Path):
                 _run_streaming(state, cmd, env=env, pass_id=pid)
 
             elif pid == "rank":
-                cmd = [TAG, "rank", str(folder), "--top", "50"]
+                cmd = [*TAG, "rank", str(folder), "--top", "50"]
                 if not state.get("apply_rank_keywords"):
                     cmd.append("--no-keywords")
                 _run_streaming(state, cmd, pass_id=pid)
 
             elif pid == "ocr":
-                cmd = [TAG, "ocr", str(folder), "--resume"]
+                cmd = [*TAG, "ocr", str(folder), "--resume"]
                 if sample:
                     cmd += ["--sample", str(sample)]
                 if ocr_missing_only:
@@ -459,7 +460,7 @@ def run_job(state_path: Path):
                     batch = 80
                     for bi in range(0, len(missing), batch):
                         chunk = missing[bi:bi + batch]
-                        c2 = [TAG, "ocr", "--files"] + [str(p) for p in chunk]
+                        c2 = [*TAG, "ocr", "--files"] + [str(p) for p in chunk]
                         _run_streaming(state, c2, pass_id=pid)
                         if state.get("cancel_requested"):
                             raise RuntimeError("cancelled")
@@ -467,19 +468,19 @@ def run_job(state_path: Path):
                     _run_streaming(state, cmd, pass_id=pid)
 
             elif pid == "people":
-                cmd = [TAG, "faces", str(folder)]
+                cmd = [*TAG, "faces", str(folder)]
                 if sample:
                     cmd += ["--sample", str(sample)]
                 _run_streaming(state, cmd, pass_id=pid)
 
             elif pid == "camera":
-                cmd = [TAG, "camera", str(folder)]
+                cmd = [*TAG, "camera", str(folder)]
                 if sample:
                     cmd += ["--sample", str(sample)]
                 _run_streaming(state, cmd, pass_id=pid)
 
             elif pid == "scene":
-                cmd = [TAG, "scene", str(folder)]
+                cmd = [*TAG, "scene", str(folder)]
                 if sample:
                     cmd += ["--sample", str(sample)]
                 _run_streaming(state, cmd, pass_id=pid)
@@ -505,7 +506,7 @@ def run_job(state_path: Path):
                 else:
                     if len(paths) > 1:
                         log(state, f"schedule: merged {len(paths)} event files for this date -> {sched}")
-                    cmd = [TAG, "schedule", str(folder)]
+                    cmd = [*TAG, "schedule", str(folder)]
                     if sample:
                         cmd += ["--sample", str(sample)]
                     cmd += ["--schedule", sched]
@@ -517,7 +518,7 @@ def run_job(state_path: Path):
                 if sample or dry_run:
                     log(state, "cull keywords skipped (sample/dry-run)")
                 else:
-                    _run_streaming(state, [str(HOME / "venv/bin/python"), str(HOME / "cull_album.py"), str(folder)], pass_id=pid)
+                    _run_streaming(state, [compat.python_exe(HOME), str(HOME / "cull_album.py"), str(folder)], pass_id=pid)
 
             else:
                 raise RuntimeError(f"unknown pass {pid}")

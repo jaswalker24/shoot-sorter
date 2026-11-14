@@ -12,6 +12,9 @@ import argparse, os, base64, csv, hashlib, io, json, os, re, subprocess, sys, ti
 from pathlib import Path
 
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter"))
+if str(HOME) not in sys.path:
+    sys.path.insert(0, str(HOME))
+import compat  # noqa: E402
 os.environ.setdefault("HF_HOME", str(HOME / "models" / "hf"))
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
@@ -116,7 +119,7 @@ def sha256_file(p, bs=4 * 1024 * 1024):
 
 def _exiftool_preview(path: Path):
     """Read-only: pull PreviewImage / JpgFromRaw / ThumbnailImage via bundled exiftool."""
-    et = HOME / "bin/exiftool"
+    et = Path(compat.exiftool(HOME))
     if not et.exists():
         return None
     for tag in ("-PreviewImage", "-JpgFromRaw", "-ThumbnailImage"):
@@ -212,10 +215,11 @@ class Clip:
     def __init__(self, cfg):
         import torch, open_clip
         self.torch = torch
-        self.dev = "mps" if torch.backends.mps.is_available() else "cpu"
+        self.dev = compat.torch_device(torch)
         self.model, _, self.pre = open_clip.create_model_and_transforms(
             cfg["siglip_model"], pretrained=cfg["siglip_pretrained"])
         self.model = self.model.to(self.dev).eval()
+        print(f"SigLIP device: {self.dev}", file=sys.stderr, flush=True)
         self.tok = open_clip.get_tokenizer(cfg["siglip_model"])
         self._cache = {}
 
@@ -239,7 +243,10 @@ class Clip:
         return self.torch.softmax(logits, dim=-1)[0].detach().float().cpu().numpy()
 
 def vision_ocr(jpeg_path: str):
-    """Apple Vision text recognition. Returns list of (text, confidence, rel_height)."""
+    """Apple Vision text recognition. Returns list of (text, confidence, rel_height).
+    Other platforms use RapidOCR through compat.ocr."""
+    if sys.platform != "darwin":
+        return [(d["text"], d["conf"], d["h"]) for d in compat.ocr(jpeg_path)]
     import Vision, Quartz
     from Foundation import NSURL
     url = NSURL.fileURLWithPath_(jpeg_path)

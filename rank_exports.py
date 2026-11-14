@@ -11,18 +11,21 @@ exists. Training uses only local index features (no images leave the Mac).
 """
 from __future__ import annotations
 
-import csv, itertools, json, math, os, re, sqlite3, subprocess
+import csv, itertools, json, math, os, re, sqlite3, subprocess, sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter"))
+if str(HOME) not in sys.path:
+    sys.path.insert(0, str(HOME))
+import compat  # noqa: E402
 IDX = HOME / "index" / "catalog.sqlite"
 OUT = HOME / "out"
 PHOTOS = Path("/Volumes/Photos")
 EXPORTS_ROOT = PHOTOS / "Camera Exports"
 IMPORTS_ROOT = PHOTOS / "Camera Imports"
-EXIFTOOL = HOME / "bin" / "exiftool"
+EXIFTOOL = Path(compat.exiftool(HOME))
 SKIP_VIDEO = {".mp4", ".mov", ".m4v", ".avi", ".mpg", ".mpeg", ".mts", ".m2ts"}
 IMAGE_EXT = {".jpg", ".jpeg", ".tif", ".tiff", ".png", ".webp", ".heic", ".jxl",
              ".dng", ".cr3", ".cr2", ".nef", ".arw", ".raf", ".rw2", ".orf"}
@@ -509,7 +512,7 @@ def exif_for(paths: list[Path]) -> dict[str, dict]:
     out = {}
     if not paths:
         return out
-    tool = str(EXIFTOOL if EXIFTOOL.exists() else "exiftool")
+    tool = str(EXIFTOOL if EXIFTOOL.exists() else (compat.shutil.which("exiftool") or "exiftool"))
     # chunk to keep the command line reasonable
     for i in range(0, len(paths), 80):
         chunk = paths[i:i + 80]

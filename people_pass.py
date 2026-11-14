@@ -11,7 +11,7 @@ Never writes ratings/colours. MP4s ignored via tagger.list_images. Captions unus
 Low-confidence matches go to needs_review (tentative_keywords only).
 """
 from __future__ import annotations
-import json, math, os, time, uuid
+import json, math, os, sys, time, uuid
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -19,6 +19,9 @@ import numpy as np
 from PIL import Image
 
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter"))
+if str(HOME) not in sys.path:
+    sys.path.insert(0, str(HOME))
+import compat  # noqa: E402
 PEOPLE_DIR = HOME / "people"
 LIB_PATH = PEOPLE_DIR / "library.json"
 OUT = HOME / "out"
@@ -583,10 +586,7 @@ def reveal_in_finder(path: str | Path) -> dict:
     """Reveal a file/folder in Finder. Only paths under out/ or people/."""
     target = is_allowed_reveal_path(path)
     # open -R reveals in Finder; works for files and folders
-    r = __import__("subprocess").run(
-        ["open", "-R", str(target)],
-        capture_output=True, text=True, timeout=15,
-    )
+    r = compat.reveal(target)
     if r.returncode:
         raise RuntimeError((r.stderr or r.stdout or f"open failed rc={r.returncode}").strip())
     return {"ok": True, "path": str(target)}

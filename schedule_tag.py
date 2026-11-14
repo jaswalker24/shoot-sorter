@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Schedule tagging: EXIF capture time -> event/venue/act/cheki/meet/changeover keyword proposals.
 Proposals are apply_xmp-compatible; flagged frames (needs_review) are never applied."""
-import os
+import os, sys
 import json, subprocess
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter"))
+if str(HOME) not in sys.path:
+    sys.path.insert(0, str(HOME))
+import compat  # noqa: E402
 
 def _off(s):
     s = s.strip(); sign = -1 if s.startswith("-") else 1; h, m = s.lstrip("+-").split(":")
@@ -16,7 +19,7 @@ def capture_times(paths, camera_utc_offset=None):
     """-> {path: aware datetime}. Offset: EXIF OffsetTimeOriginal, else camera_utc_offset (config), else +00:00."""
     out = {}
     for i in range(0, len(paths), 200):
-        r = subprocess.run([str(HOME / "bin/exiftool"), "-j", "-q", "-DateTimeOriginal", "-SubSecTimeOriginal", "-OffsetTimeOriginal"]
+        r = subprocess.run([compat.exiftool(HOME), "-j", "-q", "-DateTimeOriginal", "-SubSecTimeOriginal", "-OffsetTimeOriginal"]
                            + [str(p) for p in paths[i:i + 200]], capture_output=True, text=True)
         for d in json.loads(r.stdout or "[]"):
             t = d.get("DateTimeOriginal")

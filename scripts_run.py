@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Optional folder-list backend (this edition has no Capture One Scripts menu).
-Runs at low priority, logs to ~/shoot-sorter/logs/scripts/, posts a macOS notification
+Runs at low priority, logs to ~/shoot-sorter/logs/scripts/, posts a desktop notification (macOS)
 when done. Writes only via apply_xmp (additive keywords in sidecars)."""
 import json, os, re, subprocess, sys, time
 from pathlib import Path
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter"))
 sys.path.insert(0, str(HOME))
+import compat  # noqa: E402
 LOG = HOME / "logs" / "scripts"; LOG.mkdir(parents=True, exist_ok=True)
 CFG = json.load(open(HOME / "config.json"))
-TAG = str(HOME / "tag")
+TAG = compat.tag_cmd(HOME)
 
 def notify(title, msg):
-    subprocess.run(["osascript", "-e", f'display notification {json.dumps(msg[:200])} with title {json.dumps(title)}'])
+    compat.notify(title, msg)
 
 def run(cmd, env=None):
     print("$", " ".join(cmd), flush=True)
@@ -46,21 +47,21 @@ def main():
             prof = profile_for(folder)
             ctx = CFG.get("script_context", {}).get(fo, "")
             stem_tag = "selection-" + time.strftime("%Y%m%d-%H%M%S")
-            run([TAG, "--profile", prof, "--tag", stem_tag, "--files", *files] + (["--context", ctx] if ctx else []),
+            run([*TAG, "--profile", prof, "--tag", stem_tag, "--files", *files] + (["--context", ctx] if ctx else []),
                 env={"SHOOT_SORTER_NO_APPLY_STEP": "1"})
             res = apply(out / f"{prof}-proposals-{stem_tag}.json"); summary = f"{len(res['applied'])} keywords added ({prof})"
         elif action in ("bursts", "rank", "sharpness"):
-            run([TAG, "index", "--files", *files]); run([TAG, action, "--files", *files])
+            run([*TAG, "index", "--files", *files]); run([*TAG, action, "--files", *files])
             res = apply(out / f"{action}-proposals.json"); summary = f"{len(res['applied'])} keywords added"
         elif action == "ocr":
-            run([TAG, "ocr", "--translate", "--files", *files])
+            run([*TAG, "ocr", "--translate", "--files", *files])
             res = apply(out / "ocr-proposals.json")
             summary = f"{len(res['applied'])} descriptions written; {len([s for s in res['skipped'] if s.get('field')])} kept (not empty, sidecar only)"
         elif action == "schedule":
-            run([TAG, "schedule", "--files", *files])
+            run([*TAG, "schedule", "--files", *files])
             res = apply(out / "schedule-proposals.json"); summary = f"{len(res['applied'])} keywords added"
         elif action == "captions":
-            o = run([TAG, "captions", "--files", *files]); summary = "drafts saved: " + (re.findall(r"sidecar: (.*)", o) or ["?"])[-1]
+            o = run([*TAG, "captions", "--files", *files]); summary = "drafts saved: " + (re.findall(r"sidecar: (.*)", o) or ["?"])[-1]
         if action != "captions" and res["failures"]:
             summary += f"; {len(res['failures'])} problems (see log)"
         print("DONE", summary, flush=True); notify(title, summary)

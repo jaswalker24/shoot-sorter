@@ -22,6 +22,7 @@ from pathlib import Path
 
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter"))
 sys.path.insert(0, str(HOME))
+import compat  # noqa: E402
 os.environ.setdefault("HF_HOME", str(HOME / "models" / "hf"))
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
@@ -106,9 +107,10 @@ class Aesthetic:
     def __init__(self):
         import torch, open_clip
         self.torch = torch
-        self.dev = "mps" if torch.backends.mps.is_available() else "cpu"
+        self.dev = compat.torch_device(torch)
         self.model, _, self.pre = open_clip.create_model_and_transforms("ViT-L-14", pretrained="openai")
         self.model = self.model.to(self.dev).eval()
+        print(f"CLIP ViT-L-14 device: {self.dev}", file=sys.stderr, flush=True)
         sd = torch.load(HOME / "models/aesthetic/sac+logos+ava1-l14-linearMSE.pth", map_location="cpu")
         nn = torch.nn
         self.mlp = nn.Sequential(nn.Linear(768, 1024), nn.Dropout(0.2), nn.Linear(1024, 128), nn.Dropout(0.2),
@@ -131,7 +133,10 @@ def _vision_handler(path):
     return Vision.VNImageRequestHandler.alloc().initWithURL_options_(NSURL.fileURLWithPath_(str(path)), None)
 
 def subject_box(path):
-    """Apple Vision objectness saliency -> (x0,y0,x1,y1) normalised, top-left origin; None if nothing."""
+    """Apple Vision objectness saliency -> (x0,y0,x1,y1) normalised, top-left origin; None if nothing.
+    Other platforms: spectral-residual saliency (compat.saliency_box)."""
+    if sys.platform != "darwin":
+        return compat.saliency_box(path)
     import Vision
     h = _vision_handler(path)
     req = Vision.VNGenerateObjectnessBasedSaliencyImageRequest.alloc().init()
@@ -176,7 +181,7 @@ def exif_batch(paths):
     out = {}
     for i in range(0, len(paths), 200):
         chunk = [str(p) for p in paths[i:i + 200]]
-        r = subprocess.run([str(HOME / "bin/exiftool"), "-j", "-n", "-q", "-DateTimeOriginal", "-SubSecTimeOriginal",
+        r = subprocess.run([compat.exiftool(HOME), "-j", "-n", "-q", "-DateTimeOriginal", "-SubSecTimeOriginal",
                             "-Model", "-LensModel", "-FocalLength", "-ExposureTime", "-FNumber", "-ISO"] + chunk,
                            capture_output=True, text=True)
         for d in json.loads(r.stdout or "[]"):
@@ -290,6 +295,8 @@ def cmd_search(args):
 # ------------------------------------------------------------------ ocr
 JA_RE = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff\uff66-\uff9f]")
 def ocr_lines(path, langs):
+    if sys.platform != "darwin":
+        return [(d["text"], d["conf"]) for d in compat.ocr(path)]
     import Vision
     h = _vision_handler(path)
     req = Vision.VNRecognizeTextRequest.alloc().init()
@@ -698,10 +705,21 @@ def arcface():
     if "s" not in _face_sess:
         import onnxruntime as ort
         m = HOME / "models/faces/w600k_mbf.onnx"
-        _face_sess["s"] = ort.InferenceSession(str(m), providers=["CoreMLExecutionProvider", "CPUExecutionProvider"])
+        _face_sess["s"] = ort.InferenceSession(str(m), providers=compat.onnx_providers())
     return _face_sess["s"]
 
 def detect_faces(path, W, H):
+    if sys.platform != "darwin":
+        det = HOME / "models/faces/det_500m.onnx"
+        if not det.exists():
+            raise RuntimeError(f"face detector missing: {det} (run the model download)")
+        out = []
+        for box, five, ok in compat.detect_faces_onnx(path, W, H, det):
+            if five is None:
+                x, y, w, hh = box
+                five = np.array([[x + p[0] / 112 * w, y + p[1] / 112 * hh] for p in ARC_DST], np.float32)
+            out.append((box, five, ok))
+        return out
     import Vision
     h = _vision_handler(path)
     rect = Vision.VNDetectFaceRectanglesRequest.alloc().init()

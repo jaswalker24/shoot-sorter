@@ -9,14 +9,17 @@ out/<shoot>/review-decisions.json and applies ONLY confirmed/fixed numbers throu
 Unreviewed or rejected rows are never applied.
 """
 from __future__ import annotations
-import json, os, re, subprocess, threading, time
+import json, os, re, subprocess, sys, threading, time
 from pathlib import Path
 
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter"))
+if str(HOME) not in sys.path:
+    sys.path.insert(0, str(HOME))
+import compat  # noqa: E402
 OUT = HOME / "out"
 CACHE = HOME / "cache"
 THUMBS = CACHE / "_review"
-EXIFTOOL = HOME / "bin" / "exiftool"
+EXIFTOOL = Path(compat.exiftool(HOME))
 _LOCK = threading.Lock()
 _DATA: dict = {}   # shoot -> (mtime, rows)
 NUM_RE = re.compile(r"^\d{1,3}$")
@@ -265,11 +268,11 @@ def apply_status(shoot: str, kind: str = "numbers"):
 
 
 def catalog_busy():
-    if subprocess.run(["pgrep", "-f", "fullrun.py"], capture_output=True).returncode == 0:
+    if compat.proc_running("fullrun.py"):
         return "a full run is applying keywords"
-    if subprocess.run(["pgrep", "-f", "jobrunner.py"], capture_output=True).returncode == 0:
+    if compat.proc_running("jobrunner.py"):
         return "a panel job is running"
-    if subprocess.run(["pgrep", "-f", "review_apply.py"], capture_output=True).returncode == 0:
+    if compat.proc_running("review_apply.py"):
         return "a review apply is already running"
     return None
 
@@ -282,7 +285,7 @@ def start_apply(shoot: str, kind: str = "numbers"):
         raise RuntimeError(f"A write is already running ({busy}); try again when it finishes")
     log = HOME / "logs" / "gui" / f"review-apply-{kind}-{shoot}-{time.strftime('%Y%m%d-%H%M%S')}.log"
     log.parent.mkdir(parents=True, exist_ok=True)
-    proc = subprocess.Popen([str(HOME / "venv/bin/python"), str(HOME / "review_apply.py"), shoot, "--apply", "--kind", kind],
+    proc = subprocess.Popen([compat.python_exe(HOME), str(HOME / "review_apply.py"), shoot, "--apply", "--kind", kind],
                             cwd=str(HOME), stdout=open(log, "w"), stderr=subprocess.STDOUT)
     _APPLY[(shoot, kind)] = {"status": "running", "proc": proc, "pid": proc.pid, "log": str(log),
                              "started": time.strftime("%Y-%m-%dT%H:%M:%S")}

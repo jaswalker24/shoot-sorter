@@ -459,6 +459,19 @@ def minimal_sidecar(keywords: list[str]) -> str:
     return xml
 
 
+def _replace(src: str, dst: Path, tries: int = 20, delay: float = 0.25) -> None:
+    """os.replace; on Windows, retry while another program (Lightroom, antivirus,
+    a sync client) briefly holds the sidecar open."""
+    for i in range(tries):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if os.name != "nt" or i == tries - 1:
+                raise
+            time.sleep(delay)
+
+
 def _write_atomic(path: Path, data: str, backup: bool) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if backup and path.is_file():
@@ -471,7 +484,7 @@ def _write_atomic(path: Path, data: str, backup: bool) -> None:
             f.write(data)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp_name, path)
+        _replace(tmp_name, path)
     except Exception:
         try:
             os.unlink(tmp_name)
@@ -735,7 +748,7 @@ def apply_proposals(proposals_json, apply=False, prefix=None, library=None, back
     data = json.load(open(proposals_json))
     folder = Path(data["folder"])
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    prefix = prefix or f"/tmp/shoot-sorter-apply-{stamp}"
+    prefix = prefix or os.path.join(tempfile.gettempdir(), f"shoot-sorter-apply-{stamp}")
     backup = xmp_backup_enabled() if backup is None else backup
     items, skipped_policy = [], []
     for r in data.get("images") or []:
@@ -808,7 +821,7 @@ def undo_plan(plan_json, apply=False, prefix=None, backup=None):
     data = json.load(open(plan_json)) if not isinstance(plan_json, dict) else plan_json
     folder = Path(data.get("scope_folder") or data.get("folder") or "")
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    prefix = prefix or f"/tmp/shoot-sorter-undo-{stamp}"
+    prefix = prefix or os.path.join(tempfile.gettempdir(), f"shoot-sorter-undo-{stamp}")
     res = {"removed": [], "skipped": [], "failures": [], "writer": "xmp"}
     for it in data.get("items") or []:
         p = folder / it["filename"]

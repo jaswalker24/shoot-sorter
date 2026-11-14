@@ -178,6 +178,11 @@ def volume_for(path: Path) -> Path | None:
     parts = Path(path).resolve().parts if Path(path).is_absolute() else Path(path).parts
     if len(parts) >= 3 and parts[0] == "/" and parts[1] == "Volumes":
         return Path("/Volumes") / parts[2]
+    if os.name == "nt" and parts:
+        anchor = Path(parts[0])
+        # mapped network drives and UNC shares can go missing like a macOS volume
+        if str(anchor).startswith("\\\\") or (anchor.drive and anchor.drive.upper() != os.environ.get("SystemDrive", "C:").upper()):
+            return anchor
     return None
 
 

@@ -25,8 +25,11 @@ from collections import Counter
 from pathlib import Path
 
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter"))
+if str(HOME) not in sys.path:
+    sys.path.insert(0, str(HOME))
+import compat  # noqa: E402
 OUT = HOME / "out"
-EXIFTOOL = str(HOME / "bin" / "exiftool")
+EXIFTOOL = compat.exiftool(HOME)
 TAGS = ["FileName", "Orientation", "Model", "FocusMode", "AFAreaMode", "NumAFPoints", "ValidAFPoints",
         "AFImageWidth", "AFImageHeight", "AFAreaWidths", "AFAreaHeights", "AFAreaXPositions", "AFAreaYPositions",
         "AFPointsInFocus", "AFPointsSelected", "SubjectToDetect", "EyeDetection",

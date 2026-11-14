@@ -5,9 +5,10 @@ Draft Captions are NOT part of this pipeline. Usage: venv/bin/python fullrun.py 
 import argparse, os, json, os, re, subprocess, sys, time
 from pathlib import Path
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter")); sys.path.insert(0, str(HOME))
+import compat  # noqa: E402
 os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
 os.environ.setdefault("DO_NOT_TRACK", "1")
-TAG = str(HOME / "tag")
+TAG = compat.tag_cmd(HOME)
 
 def log(*a): print(time.strftime("%H:%M:%S"), *a, flush=True)
 
@@ -45,14 +46,14 @@ def main():
         st["done"].append(name); st["timings"][name] = round(time.time() - t)
         json.dump(st, open(st_f, "w"), indent=1)
     step("snapshot_before", lambda: snap(out / "fullrun-flags-before.json", folder))
-    step("tagger", lambda: run([TAG, str(folder), "--profile", a.profile, "--tag", "full", "--resume", "--no-caption"] + (["--context", a.context] if a.context else []),
+    step("tagger", lambda: run([*TAG, str(folder), "--profile", a.profile, "--tag", "full", "--resume", "--no-caption"] + (["--context", a.context] if a.context else []),
                                env={"SHOOT_SORTER_NO_APPLY_STEP": "1"}))
-    step("camera", lambda: run([TAG, "camera", str(folder)]))
-    step("scene", lambda: run([TAG, "scene", str(folder), "--resume"]))
-    step("index", lambda: run([TAG, "index", str(folder)]))
+    step("camera", lambda: run([*TAG, "camera", str(folder)]))
+    step("scene", lambda: run([*TAG, "scene", str(folder), "--resume"]))
+    step("index", lambda: run([*TAG, "index", str(folder)]))
     for f in ("sharpness", "bursts", "rank"):
-        step(f, lambda f=f: run([TAG, f, str(folder)] + (["--top", "50"] if f == "rank" else [])))
-    step("ocr", lambda: run([TAG, "ocr", str(folder), "--resume"]))
+        step(f, lambda f=f: run([*TAG, f, str(folder)] + (["--top", "50"] if f == "rank" else [])))
+    step("ocr", lambda: run([*TAG, "ocr", str(folder), "--resume"]))
     if not a.no_apply:
         from apply_xmp import apply_proposals
         srcs = {"tagger": f"{a.profile}-proposals-full", "camera": "camera-proposals", "scene": "scene-proposals", "sharpness": "sharpness-proposals", "bursts": "bursts-proposals",
@@ -91,7 +92,7 @@ def main():
             step(f"apply:chunk{ci:03d}", go)
         if not a.no_cull_albums:
             # keyword-based smart albums (Sharp+Burst Best / Rank Best / Shortlist) for this shoot; collections only
-            step("cull_albums", lambda: run([str(HOME / "venv/bin/python"), str(HOME / "cull_album.py"), str(folder)]))
+            step("cull_albums", lambda: run([compat.python_exe(HOME), str(HOME / "cull_album.py"), str(folder)]))
     def verify():
         before = json.load(open(out / "fullrun-flags-before.json")); after = snap(out / "fullrun-flags-after.json", folder)
         changed = [{"id": k, "before": before[k], "after": after.get(k)} for k in before if after.get(k, {}).get("rating") != before[k]["rating"] or after.get(k, {}).get("color") != before[k]["color"]]

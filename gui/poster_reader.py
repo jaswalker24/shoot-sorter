@@ -9,13 +9,16 @@ renamed or trashed. The poster never applies keywords.
 """
 from __future__ import annotations
 
-import hashlib, json, os, re, time
+import hashlib, json, os, re, sys, time
 from datetime import datetime
 from pathlib import Path
 
 import schedules_tree as ST
 
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter"))
+if str(HOME) not in sys.path:
+    sys.path.insert(0, str(HOME))
+import compat  # noqa: E402
 DRAFTS_DIR = HOME / "gui" / "poster-drafts"
 THUMBS_DIR = HOME / "gui" / "poster-thumbs"
 
@@ -207,7 +210,11 @@ def discover_event_folders(root: Path) -> list[dict]:
 # ------------------------------------------------------------------ OCR
 
 def ocr_image(path: Path, langs: list[str] | None = None) -> list[dict]:
-    """Apple Vision text recognition with bounding boxes (top-left origin)."""
+    """Apple Vision text recognition with bounding boxes (top-left origin).
+    Other platforms use RapidOCR through compat.ocr (same output shape)."""
+    if sys.platform != "darwin":
+        return [{"text": d["text"], "conf": round(d["conf"], 3), "x": d["x"], "y": d["y"],
+                 "w": d["w"], "h": d["h"]} for d in compat.ocr(path, min_conf=OCR_MIN_CONF)]
     import Vision
     from Foundation import NSURL
 
@@ -1533,7 +1540,19 @@ def make_thumbnail(src: Path, dest: Path, max_px: int = 640) -> Path | None:
         return dest
     except Exception:
         pass
-    # macOS sips handles HEIC
+    # HEIC: pillow-heif when installed (any OS), else macOS sips
+    try:
+        import pillow_heif  # optional
+        pillow_heif.register_heif_opener()
+        from PIL import Image
+        im = Image.open(src).convert("RGB")
+        im.thumbnail((max_px, max_px))
+        im.save(dest, "JPEG", quality=85)
+        return dest
+    except Exception:
+        pass
+    if sys.platform != "darwin":
+        return None
     try:
         import subprocess
         r = subprocess.run(

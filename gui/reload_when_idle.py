@@ -40,6 +40,10 @@ def busy_jobs():
 
 
 def main():
+    if sys.platform != "darwin":
+        # The Windows tray app owns the panel process; restart it from the tray menu.
+        log("reload-when-idle is macOS only (launchd); use Stop/Start Panel in the tray")
+        return
     uid = os.getuid()
     def _loaded():
         for label in LABELS:
