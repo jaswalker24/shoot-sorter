@@ -6,6 +6,7 @@
 #   Contents/Resources/python/        standalone CPython 3.12 + requirements.txt
 #   Contents/Resources/app/           Shoot Sorter code (tracked files only)
 #   Contents/Resources/runtime/       first-run setup and runtime-home helpers
+#   Contents/Resources/uninstall.sh   uninstaller
 #
 # Models are not bundled. They are downloaded on first run into
 # ~/Library/Application Support/Shoot Sorter.
@@ -133,8 +134,9 @@ mkdir -p "$RES/app/tools"
 rsync -a "$EXIF_DIR"/ "$RES/app/tools/Image-ExifTool-$EXIFTOOL_VER"/
 chmod +x "$RES/app/tag" "$RES/app/start-ollama.sh" "$RES/app/tools/Image-ExifTool-$EXIFTOOL_VER/exiftool"
 
-cp "$HERE"/runtime/*.py "$HERE"/runtime/*.sh "$RES/runtime/"
-chmod +x "$RES"/runtime/*.sh
+cp "$HERE"/runtime/*.py "$RES/runtime/"
+cp "$HERE/runtime/uninstall.sh" "$RES/uninstall.sh"
+chmod +x "$RES/uninstall.sh"
 cp "$REPO/LICENSE" "$REPO/THIRD_PARTY_LICENSES.md" "$RES/"
 cp "$HERE/INSTALL.md" "$RES/INSTALL.md"
 
