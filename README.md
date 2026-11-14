@@ -2,6 +2,11 @@
 
 Tags, ranks and culls photo shoots locally on Apple silicon and writes keywords to XMP sidecars for Lightroom Classic. Keywords are added only. Stars, colour labels and develop settings are never changed. Photos never leave the Mac.
 
+## Downloads
+
+- **Mac (Apple Silicon, macOS 14+):** [Shoot Sorter 1.0.0 for Mac](https://github.com/jaswalker24/shoot-sorter/releases/tag/v1.0.0) (`.pkg`)
+- **Windows 10/11 (64-bit):** [Shoot Sorter 1.0.0 for Windows](https://github.com/jaswalker24/shoot-sorter/releases/tag/v1.0.0-windows) (`Setup.exe`)
+
 ## Requirements
 
 - An Apple-silicon Mac (M1 or newer). Intel Macs are not supported.
