@@ -74,3 +74,6 @@ schedules/*.json
 
 # Packaging build output
 packaging/build/
+
+# Windows installer build output
+packaging/build-win/

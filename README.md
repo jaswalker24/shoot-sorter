@@ -24,6 +24,8 @@ See **[INSTALL.md](INSTALL.md)** for permissions, updates and uninstall.
 
 The app lives in `~/shoot-sorter`. The control panel is at **http://127.0.0.1:8766/**. The LaunchAgent is `com.shootsorter.gui`. The Dock shortcut is **Shoot Sorter**.
 
+**On Windows,** install `ShootSorter-<version>-Setup.exe`, a tray app with its own Python that uses an NVIDIA GPU when there is one and keeps its data in `%APPDATA%\Shoot Sorter`. It is not code-signed, so SmartScreen asks once (**More info → Run anyway**). See **[packaging/windows/INSTALL-WINDOWS.md](packaging/windows/INSTALL-WINDOWS.md)** to install or build it.
+
 ## Lightroom workflow
 
 1. Keep **Automatically write changes into XMP** **off** for folders this tool will tag, until you have read the new sidecars in.

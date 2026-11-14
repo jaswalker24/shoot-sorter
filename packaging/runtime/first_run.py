@@ -2,13 +2,15 @@
 """First-run model setup for the packaged Shoot Sorter app.
 
 Downloads what the app needs but does not ship, into SHOOT_SORTER_HOME
-(~/Library/Application Support/Shoot Sorter):
+(~/Library/Application Support/Shoot Sorter on macOS, %APPDATA%\\Shoot Sorter
+on Windows):
 
   1. Ollama (standalone, localhost only) unless one is already in the folder
   2. The qwen2.5vl:3b caption model, through the local Ollama server
      (skipped when the running server already has it)
   3. Aesthetic predictor weights (rank pass)
-  4. Face embedding model (people pass)
+  4. Face models (people pass): ArcFace embedding, plus the SCRFD detector
+     used on Windows in place of Apple Vision
   5. SigLIP image model (tagging), into models/hf
   6. CLIP ViT-L-14 (aesthetic score for index/rank), into models/hf
 
@@ -34,18 +36,30 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or
-            (Path.home() / "Library" / "Application Support" / "Shoot Sorter"))
+IS_WINDOWS = os.name == "nt"
+
+
+def _default_home() -> Path:
+    if IS_WINDOWS:
+        return Path(os.environ.get("APPDATA") or (Path.home() / "AppData" / "Roaming")) / "Shoot Sorter"
+    return Path.home() / "Library" / "Application Support" / "Shoot Sorter"
+
+
+HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or _default_home())
+if str(HOME) not in sys.path:
+    sys.path.insert(0, str(HOME))
 STATUS = HOME / "logs" / "setup-status.json"
 OLLAMA_VER = "0.40.15"
-OLLAMA_URL = f"https://github.com/ollama/ollama/releases/download/v{OLLAMA_VER}/ollama-darwin.tgz"
+OLLAMA_ASSET = "ollama-windows-amd64.zip" if IS_WINDOWS else "ollama-darwin.tgz"
+OLLAMA_URL = f"https://github.com/ollama/ollama/releases/download/v{OLLAMA_VER}/{OLLAMA_ASSET}"
+OLLAMA_BIN = "ollama.exe" if IS_WINDOWS else "ollama"
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "127.0.0.1:11434")
 VLM = "qwen2.5vl:3b"
 AES_URL = ("https://github.com/christophschuhmann/improved-aesthetic-predictor/raw/main/"
            "sac+logos+ava1-l14-linearMSE.pth")
 FACES_URL = "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_s.zip"
 # Bump with the launcher's kSetupVersion when steps are added, so existing installs re-run setup.
-SETUP_VERSION = 2
+SETUP_VERSION = 3 if IS_WINDOWS else 2
 STEPS = ["ollama", "vlm", "aesthetic", "faces", "siglip", "clip_l14"]
 LABELS = {
     "ollama": "Downloading Ollama",
@@ -103,9 +117,25 @@ def _ollama_up() -> bool:
 
 
 def step_ollama() -> str | None:
-    binp = HOME / "ollama" / "ollama"
+    binp = HOME / "ollama" / OLLAMA_BIN
     if binp.exists():
         return "already installed"
+    if IS_WINDOWS and _ollama_up():
+        return "using the Ollama server already running on " + OLLAMA_HOST
+    if IS_WINDOWS:
+        # The Windows zip carries ollama.exe and lib/ollama (CUDA runners), about 1.6 GB.
+        dest = HOME / "ollama"
+        with tempfile.TemporaryDirectory(dir=str(HOME)) as td:
+            z = Path(td) / OLLAMA_ASSET
+            download(OLLAMA_URL, z)
+            status(message="Unpacking")
+            with zipfile.ZipFile(z) as zf:
+                zf.extractall(Path(td) / "x")
+            found = [p for p in (Path(td) / "x").rglob(OLLAMA_BIN) if p.is_file()]
+            if not found:
+                raise RuntimeError("ollama.exe not found in the download")
+            shutil.copytree(found[0].parent, dest, dirs_exist_ok=True)
+        return None
     with tempfile.TemporaryDirectory() as td:
         tgz = Path(td) / "ollama.tgz"
         download(OLLAMA_URL, tgz)
@@ -123,6 +153,9 @@ def step_ollama() -> str | None:
 
 
 def step_vlm() -> str | None:
+    if not _ollama_up() and IS_WINDOWS:
+        import compat  # in SHOOT_SORTER_HOME
+        compat.start_ollama(HOME, wait=60)
     if not _ollama_up():
         script = HOME / "start-ollama.sh"
         if script.exists() and (HOME / "ollama" / "ollama").exists():
@@ -168,20 +201,24 @@ def step_aesthetic() -> str | None:
     return None
 
 
+FACE_FILES = ["w600k_mbf.onnx", "det_500m.onnx"]  # embedding; detector (non-mac)
+
+
 def step_faces() -> str | None:
-    dst = HOME / "models" / "faces" / "w600k_mbf.onnx"
-    if dst.exists():
+    fdir = HOME / "models" / "faces"
+    if all((fdir / n).exists() for n in FACE_FILES):
         return "already downloaded"
     with tempfile.TemporaryDirectory() as td:
         z = Path(td) / "buffalo_s.zip"
         download(FACES_URL, z)
         with zipfile.ZipFile(z) as zf:
-            names = [n for n in zf.namelist() if n.endswith("w600k_mbf.onnx")]
-            if not names:
-                raise RuntimeError("w600k_mbf.onnx not found in buffalo_s.zip")
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            with zf.open(names[0]) as src, open(dst, "wb") as out:
-                shutil.copyfileobj(src, out)
+            fdir.mkdir(parents=True, exist_ok=True)
+            for want in FACE_FILES:
+                names = [n for n in zf.namelist() if n.endswith(want)]
+                if not names:
+                    raise RuntimeError(f"{want} not found in buffalo_s.zip")
+                with zf.open(names[0]) as src, open(fdir / want, "wb") as out:
+                    shutil.copyfileobj(src, out)
     return None
 
 

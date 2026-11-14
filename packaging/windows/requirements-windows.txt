@@ -1,0 +1,44 @@
+# Windows (x64) runtime for the packaged app. Same pins as requirements.txt,
+# minus the macOS-only pyobjc frameworks, with CUDA 13.2 builds of torch and
+# torchvision (NVIDIA driver 580 or newer; falls back to CPU without a GPU),
+# plus the Windows-only helpers:
+#   psutil      process checks (pgrep/pkill replacements)
+#   pystray     tray icon
+#   pyclipper, shapely, six   RapidOCR dependencies (OCR in place of Apple Vision;
+#               rapidocr_onnxruntime itself is installed with --no-deps so it does
+#               not pull in the non-headless opencv-python)
+#   pillow-heif HEIC posters (sips on macOS)
+--extra-index-url https://download.pytorch.org/whl/cu132
+torch==2.15.0+cu132
+torchvision==0.29.2+cu132
+open_clip_torch==4.2.1
+rawpy==0.28.0
+transformers==5.22.2
+huggingface_hub==2.4.0
+pillow==13.0.0
+requests==2.34.2
+numpy==2.5.4
+opencv-python-headless==5.0.0.93
+scikit-image==0.26.0
+scikit-learn==1.9.1
+scipy==1.18.1
+onnxruntime==1.31.1
+timm==1.0.31
+ftfy==6.3.1
+regex==2026.11.9
+safetensors==0.8.0
+tokenizers==0.23.3
+sentencepiece==0.2.3
+tiktoken==0.14.0
+tqdm==4.70.1
+PyYAML==6.0.3
+filelock==4.2.9
+fsspec==2026.9.0
+packaging==26.3
+typing_extensions==4.16.0
+psutil==7.2.2
+pystray==0.19.5
+pyclipper==1.4.0
+shapely==2.2.0
+six==1.17.0
+pillow-heif==1.8.1
