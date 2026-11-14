@@ -286,6 +286,31 @@ def replace_with_retry(src, dst, tries: int = 20, delay: float = 0.25) -> None:
             time.sleep(delay)
 
 
+def _install_windows_replace_retry() -> None:
+    """Windows: os.replace fails with "Access is denied" while another process has the
+    target open (the panel reading a job file, the tray reading setup status, Lightroom
+    or antivirus touching a sidecar). The code writes JSON/XMP via tmp + replace in many
+    places, so retry those briefly process-wide instead of failing the job."""
+    if not IS_WINDOWS or getattr(os.replace, "_shoot_sorter_retry", False):
+        return
+    _orig = os.replace
+
+    def replace(src, dst, *a, **kw):
+        for i in range(40):
+            try:
+                return _orig(src, dst, *a, **kw)
+            except PermissionError:
+                if i == 39:
+                    raise
+                time.sleep(0.05 if i < 10 else 0.1)
+
+    replace._shoot_sorter_retry = True
+    os.replace = replace
+
+
+_install_windows_replace_retry()
+
+
 # ------------------------------------------------------------------ OCR (non-mac)
 
 _RAPID = {}

@@ -16,6 +16,7 @@ from pathlib import Path
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter"))
 sys.path.insert(0, str(HOME))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import compat  # noqa: E402,F401  (Windows: retry replace on sharing violations)
 import rank_exports as R
 
 STAMP = time.strftime("%Y%m%d-%H%M%S")

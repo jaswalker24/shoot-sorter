@@ -7,6 +7,7 @@ Rejected, skipped and unreviewed frames are never touched. Undo: out/<shoot>/rev
 import argparse, os, json, re, subprocess, sys, time
 from pathlib import Path
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter")); sys.path.insert(0, str(HOME))
+import compat  # noqa: E402,F401  (Windows: retry replace on sharing violations)
 OUT = HOME / "out"
 
 def snap(path, folder=None):

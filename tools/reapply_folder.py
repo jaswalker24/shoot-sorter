@@ -13,6 +13,7 @@ import argparse, os, json, subprocess, sys, time
 from pathlib import Path
 HOME = Path(os.environ.get("SHOOT_SORTER_HOME") or (Path.home() / "shoot-sorter")); OUT = HOME / "out"
 sys.path.insert(0, str(HOME))
+import compat  # noqa: E402,F401  (Windows: retry replace on sharing violations)
 from jobrunner import _proposal_file  # noqa: E402
 from apply_xmp import apply_proposals  # noqa: E402
 

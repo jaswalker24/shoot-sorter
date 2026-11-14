@@ -6,7 +6,7 @@ The packaged Windows edition of Shoot Sorter: a tray app with its own Python run
 
 - Windows 10 (1809) or Windows 11, 64-bit (x64).
 - An NVIDIA graphics card with a recent driver (580 or newer, CUDA 13) is strongly recommended. Without one, everything runs on the processor, which is much slower.
-- About 6 GB for the app and about 12 GB more for models, downloaded on first launch (Ollama for Windows is about 1.6 GB of that).
+- About 1 GB for the app, plus about 4 GB for PyTorch and about 8 GB for models, both downloaded on first launch (Ollama for Windows is about 1.6 GB of that).
 
 ## Install
 
@@ -20,7 +20,7 @@ Silent install (no prompts): `ShootSorter-<version>-Setup.exe /VERYSILENT /SUPPR
 
 - A Shoot Sorter icon appears in the notification area (system tray). If you don't see it, click the **^** arrow next to the clock.
 - The control panel starts on a free local port (8786 by default; it never uses 8765 or 8766) and opens in your browser, already signed in.
-- The first launch downloads the models, with progress shown in the tray menu and in the icon's tooltip: Ollama for Windows (unless an Ollama server is already running on `127.0.0.1:11434`), the `qwen2.5vl:3b` caption model, aesthetic weights, the face models, the SigLIP image model and CLIP ViT-L-14. If a download fails, use **Download Models…** to resume it. Steps that are already complete are skipped.
+- The first launch downloads PyTorch and the models, with progress shown in the tray menu and in the icon's tooltip. PyTorch comes first: the CUDA build (about 2 GB to download) when the NVIDIA driver supports CUDA 13, otherwise the CPU build (about 120 MB). It goes into `python\torch-libs` in the install folder, is checked against its SHA-256, and an interrupted download resumes where it stopped. To force a build, set `"torch_variant": "cpu"` or `"cuda"` in `config.json` and use **Download Models…**. Then come Ollama for Windows (unless an Ollama server is already running on `127.0.0.1:11434`), the `qwen2.5vl:3b` caption model, aesthetic weights, the face models, the SigLIP image model and CLIP ViT-L-14. If a download fails, use **Download Models…** to resume it. Steps that are already complete are skipped.
 
 ## Tray menu
 
@@ -79,6 +79,6 @@ powershell -ExecutionPolicy Bypass -File packaging\windows\build_windows.ps1
 # -> packaging\build-win\ShootSorter-<version>-Setup.exe
 ```
 
-`build_windows.ps1` fetches uv and a standalone CPython 3.12 (python-build-standalone) into `packaging\build-win\cache`, installs `packaging\windows\requirements-windows.txt` into it (CUDA builds of torch and torchvision), adds ExifTool for Windows, stages the tracked source files, generates the icon and compiles `packaging\windows\ShootSorter.iss`. Nothing is installed on the build machine.
+`build_windows.ps1` fetches uv and a standalone CPython 3.12 (python-build-standalone) into `packaging\build-win\cache`, installs `packaging\windows\requirements-windows.txt` into it (CUDA builds of torch and torchvision, used for the import check), leaves torch and torchvision out of the staged copy and writes `torch-manifest.json` with the exact wheels for first launch (`torch_split.py`), adds ExifTool for Windows, stages the tracked source files, generates the icon and compiles `packaging\windows\ShootSorter.iss`. Nothing is installed on the build machine.
 
 The installer is not code-signed, which is why the SmartScreen step above is needed.
