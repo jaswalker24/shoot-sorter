@@ -18,7 +18,9 @@ cd /path/to/shoot-sorter
 ./install.sh
 ```
 
-See **[INSTALL.md](INSTALL.md)** for permissions, updates and uninstall. The installer is safe to re-run. It will not overwrite an existing `~/shoot-sorter/config.json` or the control-panel login token.
+See **[INSTALL.md](INSTALL.md)** for permissions, updates and uninstall.
+
+**Or use the app.** `Shoot Sorter.app` is a menu-bar app with its own Python, installed from a `.pkg` and keeping its data in `~/Library/Application Support/Shoot Sorter`. It is not signed with a Developer ID, so open it the first time with right-click → **Open**. See **[packaging/INSTALL.md](packaging/INSTALL.md)** to install or build it. The installer is safe to re-run. It will not overwrite an existing `~/shoot-sorter/config.json` or the control-panel login token.
 
 The app lives in `~/shoot-sorter`. The control panel is at **http://127.0.0.1:8766/**. The LaunchAgent is `com.shootsorter.gui`. The Dock shortcut is **Shoot Sorter**.
 

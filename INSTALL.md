@@ -4,6 +4,8 @@ Tags, ranks and culls photo shoots locally on Apple silicon and writes keywords 
 
 ## Quick start
 
+Prefer an app? The packaged **Shoot Sorter.app** (`.pkg` installer, menu-bar launcher, no Terminal needed) is described in [packaging/INSTALL.md](packaging/INSTALL.md), including the right-click **Open** step for unsigned apps. The rest of this page covers the script install.
+
 You need an **Apple-silicon Mac (M1 or newer)**, **macOS 14 or newer**, and about **15 GB** of free disk the first time. Lightroom Classic is used afterwards to read the sidecars; it does not need to be open while jobs run. Intel Macs are not supported (the installer will say why and stop).
 
 1. Clone or unzip this repository.

@@ -71,3 +71,6 @@ schedules/_merged-*.json
 # Keep the public template.
 schedules/*.json
 !schedules/example.json
+
+# Packaging build output
+packaging/build/
