@@ -30,7 +30,7 @@ OUT="$BUILD/ShootSorter-$VERSION.pkg"
 echo "==> Staging"
 rm -rf "$STAGE" "$WORK"
 mkdir -p "$STAGE" "$WORK/resources"
-ditto "$APP" "$STAGE/Shoot Sorter.app"
+ditto --norsrc --noextattr --noqtn "$APP" "$STAGE/Shoot Sorter.app"
 codesign --verify --deep --strict "$STAGE/Shoot Sorter.app"
 
 # Never let Installer "relocate" the app onto another copy it finds on disk
