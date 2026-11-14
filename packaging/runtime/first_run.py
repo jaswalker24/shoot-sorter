@@ -5,6 +5,9 @@ Downloads what the app needs but does not ship, into SHOOT_SORTER_HOME
 (~/Library/Application Support/Shoot Sorter on macOS, %APPDATA%\\Shoot Sorter
 on Windows):
 
+  0. Windows only: PyTorch and torchvision (CUDA 13.2 build when an NVIDIA
+     driver is present, otherwise the CPU build) into python\\torch-libs in
+     the install folder. The installer leaves them out to stay small.
   1. Ollama (standalone, localhost only) unless one is already in the folder
   2. The qwen2.5vl:3b caption model, through the local Ollama server
      (skipped when the running server already has it)
@@ -18,7 +21,7 @@ Progress is written to logs/setup-status.json, which the menu-bar app shows.
 Each step is skipped when its files are already present, so it is safe to
 re-run after a failed or interrupted download.
 
-Usage: first_run.py [--skip STEP ...]   (steps: ollama, vlm, aesthetic, faces, siglip, clip_l14)
+Usage: first_run.py [--skip STEP ...]   (steps: torch (Windows), ollama, vlm, aesthetic, faces, siglip, clip_l14)
 """
 from __future__ import annotations
 
@@ -59,9 +62,21 @@ AES_URL = ("https://github.com/christophschuhmann/improved-aesthetic-predictor/r
            "sac+logos+ava1-l14-linearMSE.pth")
 FACES_URL = "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_s.zip"
 # Bump with the launcher's kSetupVersion when steps are added, so existing installs re-run setup.
-SETUP_VERSION = 3 if IS_WINDOWS else 2
-STEPS = ["ollama", "vlm", "aesthetic", "faces", "siglip", "clip_l14"]
+SETUP_VERSION = 4 if IS_WINDOWS else 2
+STEPS = (["torch"] if IS_WINDOWS else []) + ["ollama", "vlm", "aesthetic", "faces", "siglip", "clip_l14"]
+RES = Path(__file__).resolve().parent.parent          # install folder (Windows) / Contents/Resources (macOS)
+TORCH_MANIFEST = RES / "torch-manifest.json"
+TORCH_DIR = RES / "python" / "torch-libs"
+
+
+def _use_torch_dir() -> None:
+    """torch-libs is added by a .pth at interpreter start; add it now if it appeared since."""
+    if TORCH_DIR.is_dir() and str(TORCH_DIR) not in sys.path:
+        sys.path.append(str(TORCH_DIR))
+        import importlib
+        importlib.invalidate_caches()
 LABELS = {
+    "torch": "Downloading PyTorch",
     "ollama": "Downloading Ollama",
     "vlm": f"Downloading caption model ({VLM})",
     "aesthetic": "Downloading aesthetic weights",
@@ -81,31 +96,198 @@ def status(**kw) -> None:
     STATUS.parent.mkdir(parents=True, exist_ok=True)
     tmp = STATUS.with_suffix(".tmp")
     tmp.write_text(json.dumps(_state, indent=1))
-    os.replace(tmp, STATUS)
+    # On Windows the tray may be reading the file at this moment (sharing violation):
+    # retry briefly, and never let a progress update stop the download.
+    for i in range(20):
+        try:
+            os.replace(tmp, STATUS)
+            return
+        except PermissionError:
+            if os.name != "nt":
+                raise
+            time.sleep(0.05)
 
 
 def _mb(n: float) -> str:
     return f"{n / 1e6:,.0f} MB"
 
 
-def download(url: str, dest: Path) -> None:
+def download(url: str, dest: Path, resume: bool = False, base: int = 0, grand_total: int = 0,
+             prefix: str = "") -> None:
+    """Download url to dest via dest.part. With resume=True an existing .part is continued
+    with an HTTP Range request. base/grand_total report progress across several files."""
     dest.parent.mkdir(parents=True, exist_ok=True)
     part = dest.with_name(dest.name + ".part")
-    req = urllib.request.Request(url, headers={"User-Agent": "ShootSorter-setup"})
-    with urllib.request.urlopen(req, timeout=60) as r, open(part, "wb") as fh:
-        total = int(r.headers.get("Content-Length") or 0)
-        got, last = 0, 0.0
-        while True:
-            chunk = r.read(1 << 20)
-            if not chunk:
-                break
-            fh.write(chunk)
-            got += len(chunk)
-            if time.time() - last > 0.5:
-                last = time.time()
-                status(progress=(got / total) if total else 0.0,
-                       message=f"{_mb(got)} of {_mb(total)}" if total else _mb(got))
+    have = part.stat().st_size if (resume and part.exists()) else 0
+    headers = {"User-Agent": "ShootSorter-setup"}
+    if have:
+        headers["Range"] = f"bytes={have}-"
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        r = urllib.request.urlopen(req, timeout=60)
+    except urllib.error.HTTPError as e:
+        if e.code == 416 and have:        # the .part is already complete
+            os.replace(part, dest)
+            return
+        raise
+    with r:
+        if have and r.status != 206:      # server ignored the range: start again
+            have = 0
+        total = int(r.headers.get("Content-Length") or 0) + have
+        with open(part, "ab" if have else "wb") as fh:
+            got, last = have, 0.0
+            while True:
+                chunk = r.read(1 << 20)
+                if not chunk:
+                    break
+                fh.write(chunk)
+                got += len(chunk)
+                if time.time() - last > 0.5:
+                    last = time.time()
+                    if grand_total:
+                        status(progress=min(0.99, (base + got) / grand_total),
+                               message=f"{prefix}{_mb(base + got)} of {_mb(grand_total)}")
+                    else:
+                        status(progress=(got / total) if total else 0.0,
+                               message=f"{_mb(got)} of {_mb(total)}" if total else _mb(got))
+    if total and part.stat().st_size < total:
+        raise RuntimeError(f"download interrupted at {_mb(part.stat().st_size)} of {_mb(total)}; run it again to resume")
     os.replace(part, dest)
+
+
+# ------------------------------------------------------------------ PyTorch (Windows)
+
+def _cfg() -> dict:
+    try:
+        d = json.loads((HOME / "config.json").read_text(encoding="utf-8"))
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def cuda_driver_version() -> int:
+    """CUDA driver API version (e.g. 13020), or 0 when there is no usable NVIDIA driver/GPU."""
+    try:
+        import ctypes
+        cu = ctypes.WinDLL("nvcuda.dll")
+        if cu.cuInit(0) != 0:
+            return 0
+        n = ctypes.c_int(0)
+        if cu.cuDeviceGetCount(ctypes.byref(n)) != 0 or n.value < 1:
+            return 0
+        v = ctypes.c_int(0)
+        cu.cuDriverGetVersion(ctypes.byref(v))
+        return int(v.value)
+    except Exception:
+        return 0
+
+
+def torch_variant() -> tuple[str, str]:
+    """('cu132' | 'cpu', reason). config.json "torch_variant" ("cuda"/"cpu") overrides detection."""
+    want = str(_cfg().get("torch_variant") or os.environ.get("SHOOT_SORTER_TORCH_VARIANT") or "auto").lower()
+    if want == "cpu":
+        return "cpu", "CPU build (set in config.json)"
+    drv = cuda_driver_version()
+    if want in ("cuda", "cu132"):
+        return "cu132", "CUDA build (set in config.json)"
+    if drv >= 13000:
+        return "cu132", f"NVIDIA driver supports CUDA {drv // 1000}.{(drv % 1000) // 10}"
+    if drv:
+        return "cpu", f"NVIDIA driver too old for CUDA 13 (reports {drv // 1000}.{(drv % 1000) // 10}); update it, then Download Models again"
+    return "cpu", "no NVIDIA GPU found"
+
+
+def _sha256(p: Path) -> str:
+    import hashlib
+    h = hashlib.sha256()
+    with open(p, "rb") as fh:
+        for b in iter(lambda: fh.read(8 << 20), b""):
+            h.update(b)
+    return h.hexdigest()
+
+
+def step_torch() -> str | None:
+    if not TORCH_MANIFEST.exists():
+        return "bundled with this build"
+    man = json.loads(TORCH_MANIFEST.read_text(encoding="utf-8"))
+    variant, why = torch_variant()
+    wheels = man["variants"][variant]
+    marker = TORCH_DIR / ".installed.json"
+    want = {"variant": variant, "files": [w["file"] for w in wheels]}
+    try:
+        if json.loads(marker.read_text(encoding="utf-8")).get("files") == want["files"]:
+            return f"already installed ({variant})"
+    except (OSError, ValueError):
+        pass
+    kind = "CUDA" if variant != "cpu" else "CPU"
+    status(label=f"Downloading PyTorch ({kind} build)", message=why)
+    print("torch:", variant, "-", why, flush=True)
+    cache = HOME / "cache" / "wheels"
+    cache.mkdir(parents=True, exist_ok=True)
+    # sizes for one progress bar across both wheels
+    sizes = []
+    for w in wheels:
+        try:
+            req = urllib.request.Request(w["url"], method="HEAD", headers={"User-Agent": "ShootSorter-setup"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                sizes.append(int(r.headers.get("Content-Length") or 0))
+        except OSError:
+            sizes.append(0)
+    grand = sum(sizes)
+    base = 0
+    for w, size in zip(wheels, sizes):
+        dest = cache / w["file"]
+        if not (dest.exists() and _sha256(dest) == w["sha256"]):
+            dest.unlink(missing_ok=True)
+            download(w["url"], dest, resume=True, base=base, grand_total=grand, prefix=f"{kind} build: ")
+            status(message="Checking download")
+            if _sha256(dest) != w["sha256"]:
+                dest.unlink(missing_ok=True)
+                raise RuntimeError(f"checksum mismatch for {w['file']}; run Download Models again")
+        base += size or dest.stat().st_size
+    # unpack into a fresh folder, then swap it in
+    tmp = TORCH_DIR.with_name("torch-libs.partial")
+    if tmp.exists():
+        shutil.rmtree(tmp)
+    tmp.mkdir(parents=True)
+    members = []
+    for w in wheels:
+        with zipfile.ZipFile(cache / w["file"]) as zf:
+            members.append((w, zf.infolist()))
+    total_bytes = sum(i.file_size for _, infos in members for i in infos) or 1
+    done_bytes, last = 0, 0.0
+    for w, infos in members:
+        with zipfile.ZipFile(cache / w["file"]) as zf:
+            for info in infos:
+                if info.filename.startswith("../") or ".data/scripts/" in info.filename:
+                    continue  # console scripts (torchrun etc.) are not needed
+                zf.extract(info, tmp)
+                done_bytes += info.file_size
+                if time.time() - last > 0.5:
+                    last = time.time()
+                    status(progress=0.99, message=f"Unpacking {done_bytes * 100 // total_bytes}%")
+    status(message="Compiling Python files")
+    subprocess.run([sys.executable, "-m", "compileall", "-q", "-j", "0", str(tmp)],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=0x08000000)
+    old = TORCH_DIR.with_name("torch-libs.old")
+    if old.exists():
+        shutil.rmtree(old, ignore_errors=True)
+    if TORCH_DIR.exists():
+        os.replace(TORCH_DIR, old)
+    os.replace(tmp, TORCH_DIR)
+    shutil.rmtree(old, ignore_errors=True)
+    marker.write_text(json.dumps({**want, "reason": why, "installed": time.strftime("%Y-%m-%d %H:%M:%S")}),
+                      encoding="utf-8")
+    # check it imports, and what it can see
+    chk = subprocess.run([sys.executable, "-c", "import torch; print(torch.__version__, torch.cuda.is_available())"],
+                         capture_output=True, text=True, creationflags=0x08000000)
+    if chk.returncode:
+        raise RuntimeError("PyTorch installed but does not import: " + (chk.stderr or "")[-300:])
+    print("torch:", chk.stdout.strip(), flush=True)
+    _use_torch_dir()
+    for w in wheels:   # free ~2 GB; the marker records what is installed
+        (cache / w["file"]).unlink(missing_ok=True)
+    return None
 
 
 def _ollama_up() -> bool:
@@ -228,6 +410,7 @@ def _dir_bytes(p: Path) -> int:
 
 def _openclip_fetch(model: str, tag: str) -> str | None:
     """Download an open_clip model into models/hf, with progress from the folder size."""
+    _use_torch_dir()
     hf = HOME / "models" / "hf"
     os.environ["HF_HOME"] = str(hf)
     os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
@@ -287,9 +470,9 @@ def step_clip_l14() -> str | None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--skip", nargs="*", default=[], choices=STEPS)
+    ap.add_argument("--skip", nargs="*", default=[], choices=STEPS + ["torch"])
     a = ap.parse_args()
-    funcs = {"ollama": step_ollama, "vlm": step_vlm, "aesthetic": step_aesthetic,
+    funcs = {"torch": step_torch, "ollama": step_ollama, "vlm": step_vlm, "aesthetic": step_aesthetic,
              "faces": step_faces, "siglip": step_siglip,
              "clip_l14": step_clip_l14}
     status(state="running")

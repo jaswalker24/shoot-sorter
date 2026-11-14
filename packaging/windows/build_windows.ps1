@@ -6,7 +6,8 @@ Build the Shoot Sorter Windows installer (x64).
 Output: packaging\build-win\ShootSorter-<version>-Setup.exe
 
 The installer bundles:
-  python\            standalone CPython 3.12 (python-build-standalone, via uv) + requirements-windows.txt
+  python\            standalone CPython 3.12 (python-build-standalone, via uv) + requirements-windows.txt,
+                     except torch/torchvision, which first launch downloads (CUDA or CPU build)
   app\               Shoot Sorter code (tracked files only) and ExifTool for Windows
   runtime\           tray launcher, first-run model download, data-folder helper
 Models are not bundled; they download on first launch into %APPDATA%\Shoot Sorter.
@@ -69,7 +70,7 @@ if (-not (Test-Path "$Runtime\python.exe")) {
 }
 $Py = Join-Path $Runtime 'python.exe'
 if (-not $SkipPython) {
-  Say 'Installing requirements into the bundled runtime (CUDA torch is about 2 GB; several minutes)'
+  Say 'Installing requirements into the build runtime (CUDA torch is about 2 GB; it is used for the import check and left out of the installer)'
   Get-ChildItem "$Runtime\Lib" -Filter EXTERNALLY-MANAGED -ErrorAction SilentlyContinue | Remove-Item -Force
   & $Uv pip install --python $Py --break-system-packages --index-strategy unsafe-best-match -r "$Here\requirements-windows.txt"
   if ($LASTEXITCODE) { throw 'pip install failed' }
@@ -103,6 +104,10 @@ if (Test-Path $Stage) { Remove-Item -Recurse -Force $Stage }
 New-Item -ItemType Directory -Force "$Stage\app", "$Stage\runtime" | Out-Null
 & robocopy $Runtime "$Stage\python" /E /NFL /NDL /NJH /NJS /NP /XD __pycache__ "$Runtime\Lib\test" "$Runtime\Lib\idlelib" "$Runtime\Lib\turtledemo" /XF EXTERNALLY-MANAGED | Out-Null
 if ($LASTEXITCODE -ge 8) { throw 'robocopy python failed' }
+# PyTorch (about 2 GB compressed) is downloaded on first launch instead of shipped:
+# strip torch/torchvision from the staged runtime and record the exact wheels to fetch.
+& $Py "$Here\torch_split.py" "$Runtime\Lib\site-packages" "$Stage\python\Lib\site-packages" "$Stage\torch-manifest.json"
+if ($LASTEXITCODE) { throw 'torch_split failed' }
 
 # App code: tracked files only, so local config, schedules and data never ship.
 $skip = '^(packaging/|install\.sh$|INSTALL-LR\.md$|test_scripts\.sh$|tests/|tests_.*\.py$|gui/macos/|\.git)'
