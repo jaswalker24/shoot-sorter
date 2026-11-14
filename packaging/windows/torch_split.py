@@ -37,7 +37,7 @@ def dist_info(site: Path, name: str) -> Path:
 def top_levels(di: Path) -> set[str]:
     tops = set()
     for line in (di / "RECORD").read_text(encoding="utf-8").splitlines():
-        path = line.split(",")[0]
+        path = line.split(",")[0].replace("\\", "/")   # uv on Windows writes backslashes
         if path:
             tops.add(path.split("/")[0])
     return tops

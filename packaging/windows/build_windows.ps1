@@ -148,8 +148,14 @@ import torch
 print("all", len(mods), "imports OK; torch", torch.__version__, "CUDA build", torch.version.cuda,
       "cuda available:", torch.cuda.is_available())
 '@
-$chk | & "$Stage\python\python.exe" -
+# Everything, with the build runtime (which still has torch) ...
+$chk | & $Py -
 if ($LASTEXITCODE) { throw 'import check failed' }
+# ... and the staged runtime without torch: the rest must import on its own.
+$chk2 = $chk -replace '"torch", "torchvision", "open_clip", ', '' -replace '"timm", ', '' -replace '(?s)import torch\r?\nprint\(.*', 'print("staged runtime imports OK without torch:", len(mods))'
+$chk2 | & "$Stage\python\python.exe" -
+if ($LASTEXITCODE) { throw 'staged import check failed' }
+if (-not (Test-Path "$Stage\torch-manifest.json")) { throw 'torch-manifest.json missing' }
 & "$Stage\app\tools\exiftool\exiftool.exe" -ver
 $size = (Get-ChildItem $Stage -Recurse -File | Measure-Object Length -Sum).Sum
 Say ("Staged {0:N2} GB" -f ($size / 1GB))
